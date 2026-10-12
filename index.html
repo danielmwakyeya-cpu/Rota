@@ -1,0 +1,1251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#1d2b55">
+<meta name="description" content="Nurses duty roster that looks like the paper sheet, shared live with the ward.">
+<title>Nurses Duty Roster</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Archivo:wght@400;600&family=Kalam:wght@400;700&display=swap">
+<style>
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-size:14px}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: one printed ward form on paper, ruled grid with a sticky name column; pen entries in blue-black and red ink; bottom sheets for editing */
+:root{
+  --paper:#fbfaf5; --paper-2:#f0eee5; --line:#3a3d45; --line-soft:#c4c1b5;
+  --ink:#1d2b55; --red:#c3262f; --fg:#24262b; --muted:#6c6a62;
+  --today:#fff0b0; --me:#e2eaff; --sheet:#ffffff; --scrim:rgba(20,20,25,.35);
+  --f-form:"Archivo Narrow","Arial Narrow",Arial,sans-serif;
+  --f-pen:"Kalam","Comic Sans MS","Segoe Print",cursive;
+  --f-ui:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#17181b; --paper-2:#202125; --line:#9aa0ab; --line-soft:#3a3d44;
+  --ink:#c4d3ff; --red:#ff7b80; --fg:#ebebe8; --muted:#9c9a92;
+  --today:#3b3420; --me:#1e2944; --sheet:#232428; --scrim:rgba(0,0,0,.55); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#17181b; --paper-2:#202125; --line:#9aa0ab; --line-soft:#3a3d44;
+  --ink:#c4d3ff; --red:#ff7b80; --fg:#ebebe8; --muted:#9c9a92;
+  --today:#3b3420; --me:#1e2944; --sheet:#232428; --scrim:rgba(0,0,0,.55); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper-2);color:var(--fg);font-family:var(--f-ui);font-size:15px}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,td:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* the sheet */
+.paper{background:var(--paper);border:1px solid var(--line-soft);box-shadow:0 1px 0 var(--line-soft),0 8px 24px rgba(0,0,0,.06);padding:18px 14px 16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:6px 10px;text-align:center}
+.head h1{margin:0;font-family:var(--f-form);font-weight:700;font-size:clamp(18px,4.6vw,24px);letter-spacing:.04em}
+.head .small{font-family:var(--f-form);font-weight:500;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.fill{font-family:var(--f-pen);font-size:22px;color:var(--ink);border-bottom:1.5px solid var(--line);padding:0 10px;line-height:1.1;min-width:5ch;display:inline-block}
+.monthnav{display:flex;justify-content:center;align-items:center;gap:8px}
+.nav{border:1px solid var(--line-soft);background:transparent;border-radius:999px;width:36px;height:36px;font-size:18px;line-height:1}
+.nav:hover{background:var(--paper-2)}
+
+.grid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--line)}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--line);height:34px;min-width:34px;width:34px;text-align:center;padding:0}
+thead th{font-family:var(--f-form);font-weight:700;font-size:13px;background:var(--paper)}
+thead tr.days th{font-family:var(--f-pen);font-weight:400;font-size:16px;color:var(--ink)}
+th.lab{font-family:var(--f-form);font-weight:700;font-size:12px;letter-spacing:.08em;text-align:left;padding-left:8px}
+.namecol{position:sticky;left:0;z-index:2;background:var(--paper);min-width:132px;width:132px;max-width:132px;text-align:left;padding:0 6px 0 8px;border-right:1.5px solid var(--line)}
+td.namecol{font-family:var(--f-pen);font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+td.namecol.ed{padding:0 2px 0 4px}
+.nwrap{display:flex;align-items:center;gap:2px}
+.nameinp{font-family:var(--f-pen);font-size:15px;color:var(--ink);background:transparent;border:0;border-bottom:1px dashed transparent;width:100%;min-width:0;padding:4px 2px;border-radius:0}
+.nameinp:hover,.nameinp:focus{border-bottom-color:var(--line-soft);outline:none;background:var(--paper-2)}
+.opts{border:0;background:none;width:26px;height:30px;flex:none;color:var(--muted);font-size:18px;line-height:1;padding:0}
+.opts:hover{color:var(--ink)}
+.paintbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.paintbar .lbl{font-family:var(--f-form);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-right:4px}
+.pc{border:1.5px solid var(--line-soft);background:var(--paper);border-radius:8px;min-width:40px;height:36px;padding:0 8px;font-family:var(--f-pen);font-size:18px;font-weight:700;color:var(--ink)}
+.pc.red{color:var(--red)}
+.pc.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.pc.erase{font-family:var(--f-ui);font-size:13px;font-weight:600}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.paintmode td.c{cursor:crosshair}
+thead th.hol{color:var(--red)}
+.holnote{margin:0;font-size:13px;color:var(--red)}
+.imgprev{max-width:100%;border:1px solid var(--line-soft);background:#fff}
+th.hrs,td.hrs{min-width:46px;width:46px;font-family:var(--f-form);font-weight:700;font-size:13px;border-left:1.5px solid var(--line)}
+td.hrs{color:var(--fg);background:var(--paper)}
+tfoot td,tfoot th{font-family:var(--f-form);font-weight:700;font-size:13px;background:var(--paper-2)}
+tfoot tr:first-child td,tfoot tr:first-child th{border-top:1.5px solid var(--line)}
+tfoot td.gap{color:var(--paper);background:var(--red)}
+tfoot th.namecol{background:var(--paper-2)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin:0}
+.facts b{font-family:var(--f-pen);font-size:18px;color:var(--ink)}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=time]{font:inherit;color:var(--fg);background:var(--paper);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px;width:100%}
+.err{color:var(--red);font-size:14px;margin:0}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line-soft);border-top-color:var(--ink);border-radius:50%;vertical-align:-3px;margin-right:8px}
+@media (prefers-reduced-motion:no-preference){.spin{animation:sp 0.9s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}}
+td.c{font-family:var(--f-pen);font-size:15px;color:var(--ink);cursor:pointer;background:var(--paper)}
+td.c:hover{background:var(--paper-2)}
+td.red,.chip.red b{color:var(--red)}
+.weekend{background:color-mix(in srgb,var(--paper-2) 60%,var(--paper))}
+tr.me td.namecol{background:var(--me);font-weight:700}
+tr.me td.c{background:color-mix(in srgb,var(--me) 55%,var(--paper))}
+tr.blank td{cursor:default;background:var(--paper)}
+tr.blank td.namecol{cursor:pointer;color:var(--muted);font-family:var(--f-ui);font-size:12px}
+
+.tools{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line-soft);background:var(--paper);border-radius:8px;padding:8px 12px;font-size:14px}
+.btn:hover{border-color:var(--line)}
+.btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.danger{color:var(--red);border-color:var(--red)}
+
+.note{font-size:13px;color:var(--muted);margin:0;max-width:70ch}
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px dashed var(--line);padding:10px 12px;background:var(--paper)}
+.banner p{margin:0;font-size:14px}
+
+/* my week */
+.week{background:var(--paper);border:1px solid var(--line-soft);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.week h2{margin:0;font-family:var(--f-form);font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.today-line{font-size:16px;margin:0}
+.today-line b{font-family:var(--f-pen);font-size:22px;color:var(--ink);margin-right:6px}
+.today-line b.red{color:var(--red)}
+.days7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.d7{border:1px solid var(--line-soft);padding:6px 2px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.d7 small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.d7 span{font-family:var(--f-pen);font-size:19px;color:var(--ink);line-height:1.1}
+.d7 span.red{color:var(--red)}
+.d7.now{border-color:var(--line);background:var(--today)}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px}
+.chip{border:0;background:none;padding:4px 0;font-size:13px;display:flex;gap:6px;align-items:baseline;text-align:left}
+.chip b{font-family:var(--f-pen);font-size:17px;color:var(--ink);font-weight:700}
+.chip.add{color:var(--muted);text-decoration:underline}
+
+/* bottom sheet */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:20}
+.bs{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--sheet);border-top-left-radius:16px;border-top-right-radius:16px;
+  padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));max-height:85%;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+.bs-in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.bs h3{margin:0;font-size:17px}
+.bs .sub{margin:-8px 0 0;color:var(--muted);font-size:13px}
+.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.code{border:1.5px solid var(--line-soft);background:var(--paper);border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.code b{font-family:var(--f-pen);font-size:22px;color:var(--ink);line-height:1}
+.code.red b{color:var(--red)}
+.code small{font-size:10.5px;color:var(--muted);text-align:center;line-height:1.2}
+.code.sel{border-color:var(--ink);background:var(--paper-2)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.switch{display:flex;gap:10px;align-items:center;font-size:14px}
+.switch input{width:20px;height:20px;accent-color:var(--ink)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+input[type=text],textarea{font:inherit;color:var(--fg);background:var(--paper);border:1px solid var(--line-soft);border-radius:8px;padding:9px 10px;width:100%}
+textarea{min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--paper);padding:9px 14px;border-radius:999px;font-size:14px;z-index:30}
+@media (prefers-reduced-motion:no-preference){.bs{animation:up .18s ease-out}@keyframes up{from{transform:translateY(20px);opacity:.6}}}
+
+/* Visual layer: highlighter fills by shift type, like nurses marking the paper sheet.
+   night = blue highlighter, day = yellow, rest after nights = lilac, leave/holiday = pink, day off = bare paper */
+:root{--warn:#b86e00;
+  --hl-night:#cfdcfb; --hl-day:#fff0a6; --hl-rest:#e9e2f6; --hl-leave:#fbd3d8; --hl-off:transparent;
+  --rail:#1d2b55; --desk:#e8e5da; --hole:#d6d2c4; --bar:#1d2b55; --bar-fg:#fbfaf5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--warn:#f0b44c;
+  --hl-night:#26355e; --hl-day:#4a4115; --hl-rest:#342c48; --hl-leave:#552630;
+  --rail:#c4d3ff; --desk:#0f1012; --hole:#0f1012; --bar:#202a46; --bar-fg:#ebebe8}}
+:root[data-theme="dark"]{--warn:#f0b44c;
+  --hl-night:#26355e; --hl-day:#4a4115; --hl-rest:#342c48; --hl-leave:#552630;
+  --rail:#c4d3ff; --desk:#0f1012; --hole:#0f1012; --bar:#202a46; --bar-fg:#ebebe8}
+
+body{background:var(--desk)}
+
+/* app bar */
+.appbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bar);color:var(--bar-fg);
+  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.appbar .brand{font-family:var(--f-form);font-weight:700;font-size:17px;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.appbar .brand img{width:28px;height:28px;border-radius:6px}
+.appbar .acts{display:flex;gap:8px;align-items:center}
+.appbar .pill{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:var(--bar-fg)}
+.appbar .btn{background:transparent;color:var(--bar-fg);border-color:rgba(255,255,255,.35)}
+.appbar .btn:hover{border-color:var(--bar-fg)}
+.dot.ok{background:#4cc28a}
+
+/* paper sheet with punch holes, like the real file copy */
+.paper{position:relative;padding-top:34px;border:0;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 30px rgba(0,0,0,.08)}
+.paper::before{content:"";position:absolute;top:11px;left:50%;transform:translateX(-50%);width:120px;height:13px;
+  background:radial-gradient(circle at 6.5px 6.5px,var(--hole) 5.5px,transparent 6.5px) 0 0/120px 13px no-repeat,
+             radial-gradient(circle at 113.5px 6.5px,var(--hole) 5.5px,transparent 6.5px) 0 0/120px 13px no-repeat}
+
+/* separate borders: collapsed borders let scrolled squares show through the sticky name column */
+#grid{border-collapse:separate;border-spacing:0}
+#grid th,#grid td{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+#grid tr>*:last-child{border-right:0}
+#grid tbody tr:last-child>*{border-bottom:0}
+#grid .namecol{border-right:1.5px solid var(--line)}
+#grid th.hrs,#grid td.hrs{border-left:1.5px solid var(--line)}
+#grid tfoot tr:first-child>*{border-top:1.5px solid var(--line)}
+#grid tbody tr.me>*{border-top:2px solid var(--rail);border-bottom:2px solid var(--rail)}
+#grid tbody tr:has(+ tr.me)>*{border-bottom:0}
+#grid thead tr:last-child>*{border-bottom:1.5px solid var(--line)}
+/* nurse colours: a coloured tab and tint on each name, so a row is easy to follow */
+td.namecol.nc{background:color-mix(in srgb,var(--nc) 16%,var(--paper));box-shadow:inset 6px 0 0 var(--nc);padding-left:10px}
+td.namecol.nc .nameinp{color:color-mix(in srgb,var(--nc) 65%,var(--fg));font-weight:700}
+tr.me td.namecol.nc{background:color-mix(in srgb,var(--nc) 28%,var(--paper))}
+.ndot{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--nc);margin-right:8px;vertical-align:-1px;flex:none}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.sw8{width:34px;height:34px;border-radius:50%;background:var(--nc);border:3px solid var(--sheet);box-shadow:0 0 0 1px var(--line-soft)}
+.sw8.on{box-shadow:0 0 0 2.5px var(--fg)}
+/* highlighter fills */
+td.c.k-night{background:var(--hl-night)}
+td.c.k-day{background:var(--hl-day)}
+td.c.k-rest{background:var(--hl-rest)}
+td.c.k-leave{background:var(--hl-leave)}
+td.c.k-night:hover,td.c.k-day:hover,td.c.k-rest:hover,td.c.k-leave:hover{filter:brightness(.95)}
+td.c{font-weight:700}
+/* today: ink rails down the column instead of a fill, so the highlighters stay readable */
+td.today,tfoot td.today{background:inherit}
+td.c.today{box-shadow:inset 2px 0 0 var(--rail),inset -2px 0 0 var(--rail)}
+td.c.today.rq{box-shadow:inset 2px 0 0 var(--rail),inset -2px 0 0 var(--rail),inset 0 0 0 3px var(--warn)}
+thead th.today{background:var(--rail)!important;color:var(--paper)!important}
+tr.me td.c{background:inherit}
+tr.me td.c.k-night{background:var(--hl-night)} tr.me td.c.k-day{background:var(--hl-day)}
+tr.me td.c.k-rest{background:var(--hl-rest)} tr.me td.c.k-leave{background:var(--hl-leave)}
+tr.me td.namecol{background:var(--me)}
+tr.me .nameinp{font-weight:700}
+
+/* quick fill & legend swatches */
+.pc.k-night{background:var(--hl-night)} .pc.k-day{background:var(--hl-day)}
+.pc.k-rest{background:var(--hl-rest)} .pc.k-leave{background:var(--hl-leave)}
+.pc{border-radius:999px;min-width:46px}
+.pc.on{outline:2.5px solid var(--ink);outline-offset:2px;background-color:inherit;color:var(--ink);border-color:var(--ink)}
+.pc.on.erase{background:var(--ink);color:var(--paper)}
+.chip b{display:inline-block;min-width:34px;text-align:center;padding:1px 6px;border-radius:4px}
+.chip.k-night b{background:var(--hl-night)} .chip.k-day b{background:var(--hl-day)}
+.chip.k-rest b{background:var(--hl-rest)} .chip.k-leave b{background:var(--hl-leave)}
+.code.k-night{background:var(--hl-night)} .code.k-day{background:var(--hl-day)}
+.code.k-rest{background:var(--hl-rest)} .code.k-leave{background:var(--hl-leave)}
+.code.sel{outline:2.5px solid var(--ink);outline-offset:2px}
+
+/* my week as a duty card */
+.week{border:0;border-radius:14px;padding:16px;gap:14px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 30px rgba(0,0,0,.06)}
+.week h2{text-transform:none;letter-spacing:0;font-size:15px;font-family:var(--f-ui);font-weight:600;color:var(--muted)}
+.duty{display:flex;gap:14px;align-items:center}
+.duty .big{flex:none;width:72px;height:72px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-pen);font-size:34px;font-weight:700;color:var(--ink);background:var(--paper-2);border:1.5px solid var(--line-soft)}
+.duty .big.red{color:var(--red)}
+.duty .big.k-night{background:var(--hl-night);border-color:transparent} .duty .big.k-day{background:var(--hl-day);border-color:transparent}
+.duty .big.k-rest{background:var(--hl-rest);border-color:transparent} .duty .big.k-leave{background:var(--hl-leave);border-color:transparent}
+.duty .what{display:flex;flex-direction:column;gap:2px;min-width:0}
+.duty .what strong{font-size:18px}
+.duty .what span{color:var(--muted);font-size:14px}
+.facts{flex-direction:column;gap:6px}
+.facts span{display:flex;gap:6px;align-items:baseline}
+.d7{border:0;border-radius:10px;background:var(--paper-2);padding:6px 2px 8px}
+.d7.k-night{background:var(--hl-night)} .d7.k-day{background:var(--hl-day)}
+.d7.k-rest{background:var(--hl-rest)} .d7.k-leave{background:var(--hl-leave)}
+.d7.now{background-clip:padding-box;outline:2.5px solid var(--rail);outline-offset:1px}
+.d7.now.k-off,.d7.now:not([class*="k-"]){background:var(--paper-2)}
+.d7 span{font-weight:700}
+.wkkey{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.wkkey i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+
+/* bottom sheet polish */
+.bs{border-top-left-radius:20px;border-top-right-radius:20px}
+.bs::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--line-soft);margin:-6px auto 12px}
+.btn{border-radius:10px;min-height:40px}
+.btn.primary{box-shadow:0 1px 0 rgba(0,0,0,.15)}
+.syncbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{border:1px solid var(--line-soft);background:var(--paper);border-radius:999px;padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:#2e8b57}.dot.wait{background:#d49a00}.dot.bad{background:var(--red)}
+.wardcode{font-family:var(--f-form);font-weight:700;font-size:30px;letter-spacing:.18em;color:var(--ink);margin:0}
+.linkbox{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all;background:var(--paper-2);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px;user-select:all}
+.sec{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px}
+.sec h4{margin:0;font-size:14px}
+a.btn{text-decoration:none;color:inherit;display:inline-block}
+a.btn.primary{color:var(--paper)}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;max-height:50vh;overflow:auto;border:1px solid var(--line-soft);border-radius:8px}
+.log li{padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:14px;line-height:1.4}
+.log li:last-child{border-bottom:0}
+.log .lw{font-weight:600}
+.log .lt{color:var(--muted);font-size:12px}
+td.c{position:relative}
+td.c.sw::after,td.c.rq::after{position:absolute;top:1px;right:2px;font-family:var(--f-ui);font-size:9px;line-height:1;font-weight:700}
+td.c.sw::after{content:'⇄';color:var(--ink)}
+td.c.rq::after{content:'?';color:var(--warn)}
+td.c.rq{box-shadow:inset 0 0 0 2px var(--warn)}
+.notebox{border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.notebox.rq{border-color:var(--warn)}
+.pick{display:flex;flex-direction:column;gap:6px}
+.pick button{display:flex;justify-content:space-between;align-items:center;text-align:left;border:1px solid var(--line-soft);background:var(--paper);border-radius:8px;padding:10px 12px}
+.pick b{font-family:var(--f-pen);font-size:18px;color:var(--ink)}
+.pick b.red{color:var(--red)}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<header class="appbar">
+  <div class="brand"><img src="icon-192.png" alt="">Duty roster</div>
+  <div class="acts">
+    <button class="pill" id="syncPill" aria-label="Sharing and sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Only on this phone</span></button>
+    <button class="btn" id="shareWard">Share</button>
+  </div>
+</header>
+<div class="wrap">
+
+  <section class="week" id="week" aria-live="polite"></section>
+
+  <section class="paper">
+    <div class="head">
+      <h1>NURSES DUTY ROSTER</h1>
+      <span class="small">for the month of</span><span class="fill" id="mName">October</span>
+      <span class="small">Year</span><span class="fill" id="yName">2026</span>
+    </div>
+    <div class="monthnav">
+      <button class="nav" id="prev" aria-label="Previous month">‹</button>
+      <button class="btn" id="goToday">This month</button>
+      <button class="nav" id="next" aria-label="Next month">›</button>
+    </div>
+    <div class="banner" id="banner" hidden>
+      <p>New month. Carry everyone's rotation on from last month?</p>
+      <button class="btn primary" id="carry">Carry on rotations</button>
+    </div>
+    <div class="paintbar" id="paintbar"></div>
+    <p class="hint" id="hint"></p>
+    <div class="grid-wrap"><table id="grid"></table></div>
+    <p class="holnote" id="holNote"></p>
+    <div class="legend" id="legend"></div>
+    <div class="tools">
+      <button class="btn primary" id="shareImg">Share as picture</button>
+      <button class="btn" id="addNurse">+ Add nurse</button>
+      <button class="btn" id="logBtn">Changes</button>
+      <button class="btn" id="backup">Backup / restore</button>
+    </div>
+    <p class="note" id="srcNote">October was copied from the photo of the paper sheet. Some handwriting was hard to read, so check each row against the paper and tap any square to fix it.</p>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="bs" id="bs" hidden role="dialog" aria-modal="true"><div class="bs-in" id="bsIn"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* =====================================================================
+   FIREBASE SETTINGS
+   Paste the config from Firebase console > Project settings > Your apps.
+   Leave apiKey empty to run the roster on one phone only (no syncing).
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+const CYCLE=['N','N','N','SD','NO','NO','NO','DO','ST','ST','ST','DO'];
+const CYC_SET=new Set(CYCLE);
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WD=['S','M','T','W','T','F','S'];
+const WDS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const KEY='nurse-roster-v1', WARD_KEY='ndr-ward', ME_KEY='ndr-me';
+
+const DEFAULT_CODES={
+  N:{m:'Night duty',red:false,start:'17:00',end:'07:30'}, SD:{m:'Sleeping day after nights',red:false},
+  NO:{m:'Night off',red:false}, DO:{m:'Day off',red:false},
+  ST:{m:'Straight (day duty)',red:false,start:'07:30',end:'17:00'}, PH:{m:'Public holiday',red:true},
+  AL:{m:'Annual leave',red:true},
+  PA:{m:'Red entry on the sheet, tap to name it',red:true},
+  HA:{m:'Red entry on the sheet, tap to name it',red:true}
+};
+
+const mk=(y,m)=>`${y}-${String(m).padStart(2,'0')}`;
+const daysIn=(y,m)=>new Date(y,m,0).getDate();
+const isWeekend=(y,m,d)=>{const w=new Date(y,m-1,d).getDay();return w===0||w===6};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>'s'+Math.random().toString(36).slice(2,9);
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+
+function seed(){
+  const y=2026,m=10,n=31;
+  const names=['M. Sandram','J.L. Mvula','M. Undzwe-Mo','H.M. Adam','S.R.V. Ntathu','B. Thomas'];
+  const staff=names.map(name=>({id:uid(),name}));
+  const cells={}; staff.forEach(s=>cells[s.id]={});
+  for(let d=1;d<=n;d++){
+    const we=isWeekend(y,m,d);
+    cells[staff[0].id][d]=CYCLE[(d-1)%12];
+    cells[staff[1].id][d]=CYCLE[(d-1+9)%12];
+    cells[staff[2].id][d]= d<12 ? CYCLE[(d-1+6)%12] : (we?'DO':'PA');
+    cells[staff[3].id][d]= d<12 ? (we?'DO':'HA') : CYCLE[(d-12+9)%12];
+    cells[staff[4].id][d]= d===15 ? 'PH' : (we?'DO':'ST');
+    cells[staff[5].id][d]=CYCLE[(d-1+3)%12];
+  }
+  return {codes:JSON.parse(JSON.stringify(DEFAULT_CODES)),months:{[mk(y,m)]:{staff,cells}},fromPhoto:mk(y,m),timesSet:true};
+}
+
+let state;
+try{state=JSON.parse(lsGet(KEY)||'null')}catch(e){state=null}
+if(!state||!state.months) state=seed();
+if(!state.timesSet){
+  if(state.codes.ST){state.codes.ST.start='07:30';state.codes.ST.end='17:00'}
+  if(state.codes.N){state.codes.N.start='17:00';state.codes.N.end='07:30'}
+  state.timesSet=true;
+}
+let me=lsGet(ME_KEY);
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+
+const toMin=t=>{const [h,m]=String(t).split(':').map(Number);return h*60+m};
+const isWork=c=>!!(c&&state.codes[c]&&state.codes[c].start&&state.codes[c].end);
+function hoursOf(c){if(!isWork(c))return 0;let d=toMin(state.codes[c].end)-toMin(state.codes[c].start);if(d<=0)d+=1440;return d/60}
+const fmtH=h=>Number.isInteger(h)?String(h):h.toFixed(1);
+function fmtT(t){const [h,m]=t.split(':').map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,'0')}${h<12?'am':'pm'}`}
+const OFF=new Set(['DO','NO']);
+/* which highlighter a code gets */
+function kindOf(c){
+  if(!c||!state.codes[c])return '';
+  if(isRed(c))return 'k-leave';
+  if(c==='SD'||c==='NO')return 'k-rest';
+  if(c==='DO')return 'k-off';
+  if(isWork(c)){const s=toMin(state.codes[c].start);return (s>=15*60||s<5*60)?'k-night':'k-day'}
+  return '';
+}
+/* nurse colours: saturated inks that don't look like the shift highlighters (no pale blue/yellow/lilac/pink) */
+const NURSE_COLORS=['#0f8b8d','#e07a1f','#3d9a3d','#b8336a','#8a5a2b','#6b4fbb','#1f7fc4','#c99a06','#4d6a85','#7a8f1f'];
+function colorOf(s,M){
+  if(s&&s.color)return s.color;
+  const staff=(M||state.months[mk(cur.y,cur.m)]||{staff:[]}).staff;
+  const i=Math.max(0,staff.findIndex(x=>x.id===(s&&s.id)));
+  return NURSE_COLORS[i%NURSE_COLORS.length];
+}
+function colorById(sid){for(const k of Object.keys(state.months).sort().reverse()){const M=state.months[k];const s=M.staff.find(x=>x.id===sid);if(s)return colorOf(s,M)}return '#888'}
+const HL_PRINT={'k-night':'#cfdcfb','k-day':'#fff0a6','k-rest':'#e9e2f6','k-leave':'#fbd3d8'};
+
+/* Malawi public holidays. A holiday on a Sunday is observed on the Monday. Eid dates follow the moon, so add them by hand. */
+function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return new Date(y,mo-1,da)}
+const HOL_CACHE={};
+function holidays(y){
+  if(HOL_CACHE[y])return HOL_CACHE[y];
+  const out={};const add=(dt,name)=>{const k=`${dt.getMonth()+1}-${dt.getDate()}`;out[k]=out[k]?out[k]+' / '+name:name};
+  const fixed=[[1,1,'New Year’s Day'],[1,15,'John Chilembwe Day'],[3,3,'Martyrs’ Day'],[5,1,'Labour Day'],[5,14,'Kamuzu Day'],[7,6,'Independence Day'],[10,15,'Mother’s Day'],[12,25,'Christmas Day'],[12,26,'Boxing Day']];
+  fixed.forEach(([m,d,n])=>{const dt=new Date(y,m-1,d);add(dt,n);if(dt.getDay()===0){const mon=new Date(y,m-1,d+1);const k=`${mon.getMonth()+1}-${mon.getDate()}`;if(!out[k])add(mon,n+' (observed)');else add(new Date(y,m-1,d+2),n+' (observed)')}});
+  const e=easter(y);add(new Date(y,e.getMonth(),e.getDate()-2),'Good Friday');add(new Date(y,e.getMonth(),e.getDate()+1),'Easter Monday');
+  return HOL_CACHE[y]=out;
+}
+const holOn=(y,m,d)=>holidays(y)[`${m}-${d}`]||'';
+
+const now=new Date();
+const T={y:now.getFullYear(),m:now.getMonth()+1,d:now.getDate()};
+let cur={y:T.y,m:T.m};
+
+/* =====================================================================
+   SYNC (Firestore)
+   rosters/{wardCode}            -> { codes }
+   rosters/{wardCode}/months/{YYYY-MM} -> { staff:[{id,name}], cells:{nurseId:{day:code}} }
+   Single squares are written field by field, so two people editing
+   different squares at the same time never overwrite each other.
+   ===================================================================== */
+const SYNC_READY=!!(FIREBASE_CONFIG.apiKey&&FIREBASE_CONFIG.projectId&&window.firebase);
+let db=null, metaRef=null, monthsRef=null, unsubs=[], ward=null;
+let syncState={mode:'local',pending:false,err:''};
+if(SYNC_READY){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+  }catch(e){db=null}
+}
+const FP=(...p)=>new firebase.firestore.FieldPath(...p);
+const DEL=()=>firebase.firestore.FieldValue.delete();
+const WARD_ALPHA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const newWardCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>WARD_ALPHA[b%WARD_ALPHA.length]).join('');
+const cleanCode=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+
+function setSync(mode,pending,err){
+  if(mode)syncState.mode=mode;
+  if(pending!==undefined)syncState.pending=pending;
+  syncState.err=err?String(err.code||err.message||err):'';
+  const dot=document.getElementById('syncDot'),txt=document.getElementById('syncTxt');
+  const m=syncState.mode;
+  dot.className='dot '+(m==='synced'&&!syncState.pending?'ok':m==='error'?'bad':m==='local'?'':'wait');
+  txt.textContent=
+    m==='local'?'Only on this phone':
+    m==='connecting'?'Connecting…':
+    m==='error'?'Sync problem, tap for details':
+    syncState.pending?(m==='offline'?'Offline, changes saved, will sync':'Saving…'):
+    m==='offline'?`Offline · ward ${ward}`:`Synced · ward ${ward}`;
+  document.getElementById('shareWard').hidden=!!ward;
+}
+
+function connect(){
+  unsubs.forEach(u=>{try{u()}catch(e){}}); unsubs=[]; metaRef=monthsRef=null;
+  if(!db||!ward){setSync('local',false);return}
+  metaRef=db.collection('rosters').doc(ward);
+  monthsRef=metaRef.collection('months');
+  setSync('connecting',false);
+  unsubs.push(metaRef.onSnapshot({includeMetadataChanges:true},snap=>{
+    if(snap.exists){const d=snap.data();if(d&&d.codes&&!snap.metadata.hasPendingWrites){state.codes=d.codes;saveLocal();scheduleRender()}}
+    setSync(snap.metadata.fromCache?'offline':'synced',snap.metadata.hasPendingWrites);
+  },err=>setSync('error',false,err)));
+  unsubs.push(monthsRef.onSnapshot({includeMetadataChanges:true},qs=>{
+    let changed=false;
+    qs.docChanges().forEach(ch=>{
+      changed=true;
+      const k=ch.doc.id;
+      if(ch.type==='removed'){delete state.months[k];return}
+      const d=ch.doc.data()||{};
+      state.months[k]={staff:Array.isArray(d.staff)?d.staff:[],cells:d.cells||{},notes:d.notes||{},remote:true};
+    });
+    if(changed){saveLocal();scheduleRender()}
+    setSync(qs.metadata.fromCache?'offline':'synced',qs.metadata.hasPendingWrites);
+  },err=>setSync('error',false,err)));
+}
+
+function writeErr(e,k){
+  if(e&&e.code==='not-found'&&k){pushMonth(k);return}
+  setSync('error',false,e);
+  toast(e&&e.code==='permission-denied'?'The ward roster refused that change. Check the Firestore rules.':'Couldn’t save to the ward roster. It will retry when online.');
+}
+const monthData=M=>({staff:M.staff.map(s=>s.color?{id:s.id,name:s.name,color:s.color}:{id:s.id,name:s.name}),cells:M.cells||{},notes:M.notes||{}});
+/* whole month: merge by default so other people's squares are kept */
+function pushMonth(k,replace){
+  saveLocal();
+  const M=state.months[k]; if(!monthsRef||!M)return;
+  M.remote=true; delete M.fresh;
+  monthsRef.doc(k).set(monthData(M),replace?{}:{merge:true}).catch(e=>writeErr(e));
+}
+function ready(k){const M=state.months[k];if(!monthsRef||!M)return false;if(!M.remote){pushMonth(k);return false}return true}
+function pushCell(k,sid,d){
+  saveLocal(); if(!ready(k))return;
+  const v=((state.months[k].cells||{})[sid]||{})[d];
+  monthsRef.doc(k).update(FP('cells',sid,String(d)),v?v:DEL()).catch(e=>writeErr(e,k));
+}
+function pushRow(k,sid){
+  saveLocal(); if(!ready(k))return;
+  const row=(state.months[k].cells||{})[sid];
+  monthsRef.doc(k).update(FP('cells',sid),row?row:DEL()).catch(e=>writeErr(e,k));
+}
+/* several squares/notes in one write: pairs of [['cells',sid,d], value] (value undefined = delete) */
+function pushFields(k,pairs){
+  saveLocal(); if(!ready(k))return;
+  const args=[];pairs.forEach(([path,v])=>{args.push(FP(...path.map(String)),v===undefined||v===null||v===''?DEL():v)});
+  monthsRef.doc(k).update(...args).catch(e=>writeErr(e,k));
+}
+function pushNote(k,sid,d){const M=state.months[k];pushFields(k,[[['notes',sid,d],((M.notes||{})[sid]||{})[d]]])}
+function pushStaff(k){
+  saveLocal(); if(!ready(k))return;
+  monthsRef.doc(k).update('staff',monthData(state.months[k]).staff).catch(e=>writeErr(e,k));
+}
+function pushCodes(){
+  saveLocal(); if(!metaRef)return;
+  metaRef.set({codes:state.codes,updated:firebase.firestore.FieldValue.serverTimestamp()}).catch(e=>writeErr(e));
+}
+
+/* ---------- change log ---------- */
+const WHO_KEY='ndr-who';
+function whoAmI(){return findName(me)||lsGet(WHO_KEY)||'Unnamed phone'}
+const dayLabel=(k,d)=>{const [y,m]=k.split('-').map(Number);return `${d} ${MONTHS[m-1].slice(0,3)}`};
+const nameOf=(k,sid)=>{const M=state.months[k];const s=M&&M.staff.find(x=>x.id===sid);return s?s.name:(findName(sid)||'A nurse')};
+function logChange(what,k){
+  const e={who:whoAmI().slice(0,60),what:String(what).slice(0,280),month:k||''};
+  if(ward&&metaRef){metaRef.collection('log').add({...e,t:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}
+  else{state.log=state.log||[];state.log.unshift({...e,t:Date.now()});if(state.log.length>200)state.log.length=200;saveLocal()}
+}
+function logCell(k,sid,d,oldC,newC){if((oldC||'')===(newC||''))return;logChange(`${nameOf(k,sid)} · ${dayLabel(k,d)}: ${oldC||'blank'} → ${newC||'blank'}`,k)}
+function ago(t){
+  if(!t)return 'just now';
+  const ms=typeof t==='number'?t:(t.toMillis?t.toMillis():0); if(!ms)return 'just now';
+  const s=(Date.now()-ms)/1000;
+  if(s<60)return 'just now'; if(s<3600)return Math.floor(s/60)+' min ago'; if(s<86400)return Math.floor(s/3600)+' h ago';
+  const dt=new Date(ms);return `${WDS[dt.getDay()]} ${dt.getDate()} ${MONTHS[dt.getMonth()].slice(0,3)}, ${fmtT(String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0'))}`;
+}
+function openLog(){
+  const hasMe=!!findName(me);
+  openSheet(`<h3>Changes</h3>
+    <p class="sub">${ward?'Every change made to the ward roster, newest first.':'Changes made on this phone, newest first.'}</p>
+    ${hasMe?'':`<label class="f" for="who">Your name, shown next to your changes<input type="text" id="who" value="${esc(lsGet(WHO_KEY)||'')}" placeholder="e.g. B. Thomas" autocomplete="off"></label>`}
+    <ul class="log" id="logList"><li class="hint"><span class="spin"></span>Loading…</li></ul>
+    <div class="row"><button class="btn" id="cx">Close</button></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    const w=bsIn.querySelector('#who'); if(w)w.onchange=()=>{lsSet(WHO_KEY,w.value.trim()||null);toast('Name saved on this phone')};
+    const draw=items=>{
+      const ul=bsIn.querySelector('#logList'); if(!ul)return;
+      ul.innerHTML=items.length?items.map(x=>`<li><span class="lw">${esc(x.who||'Someone')}</span> <span class="lt">${esc(ago(x.t))}</span><br>${esc(x.what||'')}</li>`).join(''):'<li class="hint">No changes yet.</li>';
+    };
+    if(ward&&metaRef){
+      const un=metaRef.collection('log').orderBy('t','desc').limit(100).onSnapshot(qs=>draw(qs.docs.map(d=>d.data())),()=>draw([]));
+      sheetCleanup=un;
+    }else draw(state.log||[]);
+  });
+}
+
+async function createWard(){
+  if(!db){toast('Sharing isn’t set up in this copy of the app');return}
+  ward=newWardCode(); lsSet(WARD_KEY,ward);
+  const ref=db.collection('rosters').doc(ward);
+  try{
+    await ref.set({codes:state.codes,created:firebase.firestore.FieldValue.serverTimestamp()});
+  }catch(e){ward=null;lsSet(WARD_KEY,null);setSync('local',false);toast(e&&e.code==='permission-denied'?'Firebase refused it. Paste the Firestore rules from the README.':'Couldn’t reach the internet. Try again when online.');return false}
+  connect();
+  Object.keys(state.months).forEach(k=>{if(state.months[k].staff.length)pushMonth(k,true)});
+  return true;
+}
+async function joinWard(code){
+  code=cleanCode(code);
+  if(code.length<6){toast('Ward codes have 8 letters and numbers');return false}
+  if(!db){toast('Sharing isn’t set up in this copy of the app');return false}
+  try{
+    const snap=await db.collection('rosters').doc(code).get();
+    if(!snap.exists){toast('No ward roster with that code. Check it and try again.');return false}
+    const d=snap.data()||{};
+    ward=code; lsSet(WARD_KEY,ward);
+    state={codes:d.codes||JSON.parse(JSON.stringify(DEFAULT_CODES)),months:{},timesSet:true};
+    saveLocal(); connect(); render();
+    toast('Joined the ward roster');
+    return true;
+  }catch(e){toast('Couldn’t reach the ward roster. Check the internet and try again.');return false}
+}
+function leaveWard(){
+  ward=null; lsSet(WARD_KEY,null); connect(); render();
+  toast('Left the ward. This phone keeps its own copy.');
+}
+
+let renderQueued=false,renderDeferred=false;
+function scheduleRender(){
+  if(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.nameinp')){renderDeferred=true;return}
+  if(renderQueued)return; renderQueued=true;
+  requestAnimationFrame(()=>{renderQueued=false;render()});
+}
+document.addEventListener('focusout',e=>{if(renderDeferred&&e.target.matches&&e.target.matches('.nameinp')){renderDeferred=false;setTimeout(scheduleRender,0)}});
+
+/* ---------- months ---------- */
+function ensureMonth(y,m){
+  const k=mk(y,m);
+  if(!state.months[k]){
+    const keys=Object.keys(state.months).sort();
+    const before=keys.filter(x=>x<k);
+    const src=state.months[before.length?before[before.length-1]:keys[0]];
+    const staff=src?src.staff.map(s=>({id:s.id,name:s.name,color:colorOf(s,src)})):[];
+    const cells={}; staff.forEach(s=>cells[s.id]={});
+    state.months[k]={staff,cells,fresh:true};
+  }
+  return state.months[k];
+}
+
+/* position of day d within the 12-day cycle, judged from the run of codes ending on d */
+function posAt(cells,d){
+  const c=cells[d]; let k=1;
+  while(d-k>=1&&cells[d-k]===c)k++;
+  const r=Math.min(k,3);
+  if(c==='N')return r-1;
+  if(c==='SD')return 3;
+  if(c==='NO')return 3+r;
+  if(c==='ST')return 7+r;
+  if(c==='DO')return cells[d-1]==='ST'?11:7;
+  return -1;
+}
+
+function carryOn(){
+  const k=mk(cur.y,cur.m), M=state.months[k];
+  const py=cur.m===1?cur.y-1:cur.y, pm=cur.m===1?12:cur.m-1;
+  const P=state.months[mk(py,pm)];
+  if(!P){toast('No earlier month to carry on from');return}
+  const pn=daysIn(py,pm), n=daysIn(cur.y,cur.m);
+  let done=0;
+  M.staff.forEach(s=>{
+    const pc=P.cells[s.id]; if(!pc)return;
+    const row=M.cells[s.id]||(M.cells[s.id]={});
+    const entries=Object.entries(pc);
+    const weekdayWorker=entries.length&&entries.every(([d,c])=>['ST','DO','PH'].includes(c)&&(c!=='DO'||isWeekend(py,pm,+d)))&&entries.some(([,c])=>c==='ST');
+    if(weekdayWorker){for(let d=1;d<=n;d++)row[d]=isWeekend(cur.y,cur.m,d)?'DO':'ST';done++;return}
+    const idx=CYC_SET.has(pc[pn])?posAt(pc,pn):-1;
+    if(idx<0)return;
+    for(let d=1;d<=n;d++)row[d]=CYCLE[(idx+d)%12];
+    done++;
+  });
+  delete M.fresh; pushMonth(k); render();
+  if(done)logChange(`Carried on ${done} rotation${done>1?'s':''} into ${MONTHS[cur.m-1]} ${cur.y}`,k);
+  toast(done?`Carried on ${done} rotation${done>1?'s':''}`:'Nothing to carry on. Fill the rows by hand.');
+}
+
+function codeOf(y,m,d,sid){const M=state.months[mk(y,m)];return M&&M.cells[sid]?M.cells[sid][d]:undefined}
+const isRed=c=>!!(c&&state.codes[c]&&state.codes[c].red);
+
+/* ---------- render ---------- */
+function render(){
+  const M=ensureMonth(cur.y,cur.m);
+  document.getElementById('mName').textContent=MONTHS[cur.m-1];
+  document.getElementById('yName').textContent=cur.y;
+  document.getElementById('banner').hidden=!(M.fresh&&state.months[mk(cur.m===1?cur.y-1:cur.y,cur.m===1?12:cur.m-1)]);
+  document.getElementById('srcNote').hidden=state.fromPhoto!==mk(cur.y,cur.m);
+  const n=daysIn(cur.y,cur.m);
+  const isTodayMonth=cur.y===T.y&&cur.m===T.m;
+  let h='<thead><tr><th class="namecol lab">DATE</th>';
+  for(let d=1;d<=n;d++){const ho=holOn(cur.y,cur.m,d);h+=`<th class="${isTodayMonth&&d===T.d?'today':''} ${ho?'hol':''}" ${ho?`title="${esc(ho)}"`:''}>${d}</th>`}
+  h+='<th class="hrs" rowspan="2">HRS</th><th class="hrs" rowspan="2" title="Leave and holiday days (red codes) this month">LV</th></tr><tr class="days"><th class="namecol lab">DAY</th>';
+  for(let d=1;d<=n;d++){const w=new Date(cur.y,cur.m-1,d).getDay();const ho=holOn(cur.y,cur.m,d);h+=`<th class="${isTodayMonth&&d===T.d?'today':''} ${ho?'hol':''}">${ho?'PH':WD[w]}</th>`}
+  h+='</tr></thead><tbody>';
+  M.staff.forEach(s=>{
+    const row=M.cells[s.id]||{};
+    h+=`<tr class="${me===s.id?'me':''}"><td class="namecol ed nc" style="--nc:${colorOf(s,M)}"><div class="nwrap"><input class="nameinp" id="nm-${s.id}" data-nm="${s.id}" value="${esc(s.name)}" aria-label="Name" autocomplete="off"><button class="opts" data-name="${s.id}" aria-label="More options for ${esc(s.name)}">⋮</button></div></td>`;
+    for(let d=1;d<=n;d++){
+      const c=row[d]||'';
+      const nt=((M.notes||{})[s.id]||{})[d];
+      const ntCls=nt?(nt.type==='swap'?'sw':'rq'):'';
+      const ntTxt=nt?(nt.type==='swap'?`, swapped with ${nameOf(mk(cur.y,cur.m),nt.with)}`:', day off requested'):'';
+      const cls=['c',kindOf(c),isRed(c)?'red':'',isWeekend(cur.y,cur.m,d)?'weekend':'',isTodayMonth&&d===T.d?'today':'',ntCls].join(' ');
+      h+=`<td class="${cls}" tabindex="0" data-s="${s.id}" data-d="${d}" aria-label="${esc(s.name)}, ${d} ${MONTHS[cur.m-1]}: ${c?esc(state.codes[c]?.m||c):'empty'}${esc(ntTxt)}">${esc(c)}</td>`;
+    }
+    let hrs=0,lv=0;for(let d=1;d<=n;d++){hrs+=hoursOf(row[d]);if(isRed(row[d]))lv++}
+    h+=`<td class="hrs" title="Hours this month">${hrs?fmtH(hrs):''}</td><td class="hrs lv" title="Leave and holiday days this month">${lv||''}</td></tr>`;
+  });
+  const blanks=Math.max(2,6-M.staff.length);
+  for(let i=0;i<blanks;i++){
+    h+=`<tr class="blank"><td class="namecol" tabindex="0" data-add="1">${i===0?'+ add a nurse':''}</td>`;
+    for(let d=1;d<=n;d++)h+=`<td class="${isWeekend(cur.y,cur.m,d)?'weekend':''}"></td>`;
+    h+='<td class="hrs"></td><td class="hrs"></td></tr>';
+  }
+  h+='</tbody>';
+  const count=(code,d)=>M.staff.reduce((a,s)=>a+((M.cells[s.id]||{})[d]===code?1:0),0);
+  if(M.staff.length){
+    h+='<tfoot>';
+    [['N','ON NIGHTS'],['ST','ON DAYS']].forEach(([code,lab])=>{
+      h+=`<tr><th class="namecol lab" title="Number of nurses on ${code} each day">${lab}</th>`;
+      for(let d=1;d<=n;d++){const k=count(code,d);h+=`<td class="${k===0?'gap':''} ${isTodayMonth&&d===T.d&&k?'today':''}" title="${k} on ${code}">${k}</td>`}
+      h+='<td class="hrs"></td><td class="hrs"></td></tr>';
+    });
+    h+='</tfoot>';
+  }
+  const hl=[];for(let d=1;d<=n;d++){const ho=holOn(cur.y,cur.m,d);if(ho)hl.push(`${d} ${MONTHS[cur.m-1].slice(0,3)}: ${ho}`)}
+  document.getElementById('holNote').textContent=hl.length?`Public holidays: ${hl.join(' · ')}`:'No public holidays this month.';
+  const wrap=document.querySelector('.grid-wrap'), sl=wrap.scrollLeft;
+  document.getElementById('grid').innerHTML=h;
+  wrap.scrollLeft=sl;
+  renderLegend(); renderWeek(); renderPaint();
+}
+
+let paint=null; // code being stamped, '' = erase, null = off
+function renderPaint(){
+  const P=document.getElementById('paintbar');
+  P.innerHTML='<span class="lbl">Quick fill</span>'+Object.entries(state.codes).map(([c,v])=>`<button class="pc ${kindOf(c)} ${v.red?'red':''} ${paint===c?'on':''}" data-paint="${esc(c)}" aria-pressed="${paint===c}" title="${esc(v.m)}">${esc(c)}</button>`).join('')+
+    `<button class="pc erase ${paint===''?'on':''}" data-paint="" aria-pressed="${paint===''}">Erase</button>`;
+  document.getElementById('hint').textContent= paint===null
+    ? 'Type straight into a name to change it. Tap a square to choose its shift, or pick a code above and tap squares to stamp it quickly.'
+    : (paint===''?'Erase is on: tap squares to clear them. Tap Erase again to stop.':`Stamping ${paint}: tap squares to fill them. Tap ${paint} again to stop.`);
+  document.querySelector('.grid-wrap').classList.toggle('paintmode',paint!==null);
+}
+
+function renderLegend(){
+  const L=document.getElementById('legend');
+  L.innerHTML=Object.entries(state.codes).map(([c,v])=>`<button class="chip ${kindOf(c)} ${v.red?'red':''}" data-code="${esc(c)}"><b>${esc(c)}</b><span>${esc(v.m)}${isWork(c)?` · ${fmtT(v.start)}–${fmtT(v.end)}`:''}</span></button>`).join('')+
+    '<button class="chip add" data-code="">+ add a code</button>';
+}
+
+function renderWeek(){
+  const W=document.getElementById('week');
+  const meName=findName(me);
+  if(!meName){W.innerHTML='<h2>My week</h2><p class="note">Tap the ⋮ next to your name on the roster and choose “This is my row” to see today’s shift and the week ahead here.</p>';return}
+  let cells='',todayCode='';
+  for(let i=0;i<7;i++){
+    const dt=new Date(T.y,T.m-1,T.d+i);
+    const y=dt.getFullYear(),m=dt.getMonth()+1,d=dt.getDate();
+    const c=codeOf(y,m,d,me)||'';
+    if(i===0)todayCode=c;
+    cells+=`<div class="d7 ${kindOf(c)} ${i===0?'now':''}"><small>${i===0?'Today':WDS[dt.getDay()]}</small><small>${d}</small><span class="${isRed(c)?'red':''}">${esc(c)||'–'}</span></div>`;
+  }
+  const meaning=todayCode?(state.codes[todayCode]?.m||''):'Nothing written for today';
+  const timeTxt=isWork(todayCode)?` · ${fmtT(state.codes[todayCode].start)} to ${fmtT(state.codes[todayCode].end)}`:'';
+  const nowMin=new Date().getHours()*60+new Date().getMinutes();
+  let next=null,off=null;
+  for(let i=0;i<60&&(!next||!off);i++){
+    const dt=new Date(T.y,T.m-1,T.d+i);
+    const c=codeOf(dt.getFullYear(),dt.getMonth()+1,dt.getDate(),me);
+    if(!next&&isWork(c)&&!(i===0&&toMin(state.codes[c].start)<=nowMin))next={i,c,dt};
+    if(!off&&i>0&&OFF.has(c))off={i,c,dt};
+  }
+  const when=x=>x.i===0?'today':x.i===1?'tomorrow':`${WDS[x.dt.getDay()]} ${x.dt.getDate()} ${MONTHS[x.dt.getMonth()].slice(0,3)} (in ${x.i} days)`;
+  const nextTxt=next?`<span>Next shift: <b>${esc(next.c)}</b> ${when(next)} at ${fmtT(state.codes[next.c].start)}</span>`:'';
+  const offTxt=off?`<span>Next day off: <b>${esc(off.c)}</b> ${when(off)}</span>`:'';
+  const M=state.months[mk(T.y,T.m)]; const row=(M&&M.cells[me])||{};
+  let hrs=0,nights=0;for(let d=1;d<=daysIn(T.y,T.m);d++){hrs+=hoursOf(row[d]);if(row[d]==='N')nights++}
+  const totTxt=`<span>${MONTHS[T.m-1]}: <b>${fmtH(hrs)}</b> hours, <b>${nights}</b> nights</span>`;
+  const reqs=myRequests();
+  const reqTxt=reqs.length?`<p class="facts"><span>Waiting for an answer: ${reqs.map(r=>esc(dayLabel(r.k,r.d))).join(', ')}</span></p>`:'';
+  const timeLine=isWork(todayCode)?`${fmtT(state.codes[todayCode].start)} to ${fmtT(state.codes[todayCode].end)}`:(todayCode?'No shift to work':'Tap your squares on the roster to fill them in');
+  W.innerHTML=`<h2><i class="ndot" style="--nc:${colorById(me)}"></i>${esc(meName)}, today</h2>
+    <div class="duty"><div class="big ${kindOf(todayCode)} ${isRed(todayCode)?'red':''}">${esc(todayCode)||'–'}</div>
+      <div class="what"><strong>${esc(meaning)}</strong><span>${esc(timeLine)}</span></div></div>
+    <div class="days7">${cells}</div>
+    <p class="facts">${nextTxt}${offTxt}${totTxt}</p>${reqTxt}
+    <div class="wkkey"><span><i style="background:var(--hl-night)"></i>Nights</span><span><i style="background:var(--hl-day)"></i>Days</span><span><i style="background:var(--hl-rest)"></i>Rest after nights</span><span><i style="background:var(--hl-leave)"></i>Leave or holiday</span></div>
+    <div class="row"><button class="btn" id="calBtn">Add my shifts to calendar</button></div>`;
+  W.querySelector('#calBtn').onclick=openCalendar;
+}
+
+/* ---------- calendar export (.ics) ---------- */
+const pad2=n=>String(n).padStart(2,'0');
+const ymdOf=dt=>`${dt.getFullYear()}${pad2(dt.getMonth()+1)}${pad2(dt.getDate())}`;
+const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+function buildICS(){
+  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Nurses Duty Roster//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Duty roster'];
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
+  let count=0,last=null;
+  for(let i=0;i<92;i++){
+    const dt=new Date(T.y,T.m-1,T.d+i);
+    const c=codeOf(dt.getFullYear(),dt.getMonth()+1,dt.getDate(),me); if(!c)continue;
+    const v=state.codes[c]||{m:c}; const ymd=ymdOf(dt);
+    const ev=['BEGIN:VEVENT',`UID:${ward||'phone'}-${me}-${ymd}@duty-roster`,`DTSTAMP:${stamp}`];
+    if(isWork(c)){
+      const [sh,sm]=v.start.split(':'),[eh,em]=v.end.split(':');
+      const endDt=toMin(v.end)<=toMin(v.start)?new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()+1):dt;
+      ev.push(`DTSTART:${ymd}T${sh}${sm}00`,`DTEND:${ymdOf(endDt)}T${eh}${em}00`,`SUMMARY:${icsEsc(`${c} · ${v.m}`)}`,
+        'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc(`${v.m} in 1 hour`)}`,'TRIGGER:-PT60M','END:VALARM');
+    }else if(isRed(c)){
+      const nx=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()+1);
+      ev.push(`DTSTART;VALUE=DATE:${ymd}`,`DTEND;VALUE=DATE:${ymdOf(nx)}`,`SUMMARY:${icsEsc(`${c} · ${v.m}`)}`,'TRANSP:TRANSPARENT');
+    }else continue;
+    ev.push('END:VEVENT'); out.push(...ev); count++; last=dt;
+  }
+  out.push('END:VCALENDAR');
+  return {text:out.join('\r\n')+'\r\n',count,last};
+}
+function openCalendar(){
+  const {text,count,last}=buildICS();
+  if(!count){toast('No shifts with times found from today on. Set shift times in the legend.');return}
+  const blob=new Blob([text],{type:'text/calendar'});
+  const url=URL.createObjectURL(blob);
+  const fname='my-shifts.ics';
+  const file=new File([blob],fname,{type:'text/calendar'});
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+  openSheet(`<h3>Add my shifts to calendar</h3>
+    <p class="sub">${count} shift${count>1?'s':''} and leave days from today to ${WDS[last.getDay()]} ${last.getDate()} ${MONTHS[last.getMonth()]}, each worked shift with a reminder 1 hour before.</p>
+    <p class="hint">Open the file with your calendar app to add them. If the roster changes, add it again: most calendars update the same shifts, but some add copies, so delete the old ones if you see doubles.</p>
+    <div class="row">${canShare?'<button class="btn primary" id="snd">Open in calendar…</button>':''}<a class="btn ${canShare?'':'primary'}" href="${url}" download="${fname}">Download calendar file</a><button class="btn" id="cx">Close</button></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    const snd=bsIn.querySelector('#snd');
+    if(snd)snd.onclick=async()=>{try{await navigator.share({files:[file],title:'My shifts'})}catch(e){if(e&&e.name!=='AbortError')toast('Couldn’t open sharing. Use Download instead.')}};
+  });
+}
+function findName(id){if(!id)return null;for(const k of Object.keys(state.months).sort().reverse()){const s=state.months[k].staff.find(x=>x.id===id);if(s)return s.name}return null}
+
+/* ---------- sheets ---------- */
+const bs=document.getElementById('bs'),bsIn=document.getElementById('bsIn'),scrim=document.getElementById('scrim');
+let sheetCleanup=null;
+function runCleanup(){if(sheetCleanup){try{sheetCleanup()}catch(e){}sheetCleanup=null}}
+function openSheet(html,after){runCleanup();bsIn.innerHTML=html;bs.hidden=false;scrim.hidden=false;after&&after();const f=bsIn.querySelector('[autofocus]');f&&f.focus()}
+function closeSheet(){runCleanup();bs.hidden=true;scrim.hidden=true;bsIn.innerHTML=''}
+scrim.onclick=closeSheet;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!bs.hidden)closeSheet()});
+let tt;function toast(t){const el=document.getElementById('toast');el.textContent=t;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,2600)}
+async function copyText(t,okMsg){try{await navigator.clipboard.writeText(t);toast(okMsg)}catch(e){toast('Press and hold the text to copy it')}}
+
+let contRot=false;
+function openCell(sid,d){
+  const k=mk(cur.y,cur.m), M=state.months[k];
+  const s=M.staff.find(x=>x.id===sid); const curC=(M.cells[sid]||{})[d]||'';
+  const dt=new Date(cur.y,cur.m-1,d);
+  const btns=Object.entries(state.codes).map(([c,v])=>`<button class="code ${kindOf(c)} ${v.red?'red':''} ${c===curC?'sel':''}" data-set="${esc(c)}"><b>${esc(c)}</b><small>${esc(v.m.length>22?v.m.slice(0,20)+'…':v.m)}</small></button>`).join('');
+  const nt=((M.notes||{})[sid]||{})[d];
+  let noteHtml='';
+  if(nt&&nt.type==='swap'){
+    noteHtml=`<div class="notebox"><span>⇄ Swapped with <b>${esc(nameOf(k,nt.with))}</b>${nt.was?` (was ${esc(nt.was)})`:''}${nt.by?` · by ${esc(nt.by)}`:''}</span>
+      <div class="row"><button class="btn" id="undoSwap">Undo swap</button><button class="btn" id="clrNote">Remove the mark only</button></div></div>`;
+  }else if(nt&&nt.type==='req'){
+    noteHtml=`<div class="notebox rq"><span><b>Day off requested</b>${nt.by?` by ${esc(nt.by)}`:''}${nt.text?`: “${esc(nt.text)}”`:''}</span>
+      <div class="row"><button class="btn primary" id="okReq">Approve (make it DO)</button><button class="btn" id="noReq">Decline</button></div></div>`;
+  }
+  openSheet(`<h3><i class="ndot" style="--nc:${colorOf(s,M)}"></i>${esc(s.name)}</h3><p class="sub">${WDS[dt.getDay()]} ${d} ${MONTHS[cur.m-1]} ${cur.y}${holOn(cur.y,cur.m,d)?' · '+esc(holOn(cur.y,cur.m,d)):''}</p>
+    ${noteHtml}
+    <div class="codes">${btns}</div>
+    <label class="switch"><input type="checkbox" id="contRot" ${contRot?'checked':''}> Continue the N/SD/NO/DO/ST rotation to the end of the month</label>
+    <div class="row"><button class="btn" id="swapBtn">⇄ Swap with…</button>${nt?'':'<button class="btn" id="reqBtn">Request day off</button>'}</div>
+    <div class="row"><button class="btn" data-set="">Clear square</button><button class="btn" id="bsClose">Close</button></div>`,()=>{
+    bsIn.querySelector('#contRot').onchange=e=>contRot=e.target.checked;
+    bsIn.querySelector('#bsClose').onclick=closeSheet;
+    bsIn.querySelector('#swapBtn').onclick=()=>openSwap(sid,d);
+    const rq=bsIn.querySelector('#reqBtn'); if(rq)rq.onclick=()=>openRequest(sid,d);
+    const us=bsIn.querySelector('#undoSwap'); if(us)us.onclick=()=>{undoSwap(k,sid,d);closeSheet();render()};
+    const cn=bsIn.querySelector('#clrNote'); if(cn)cn.onclick=()=>{clearSwapMarks(k,sid,d);closeSheet();render()};
+    const ok=bsIn.querySelector('#okReq'); if(ok)ok.onclick=()=>{answerRequest(k,sid,d,true);closeSheet();render()};
+    const no=bsIn.querySelector('#noReq'); if(no)no.onclick=()=>{answerRequest(k,sid,d,false);closeSheet();render()};
+    bsIn.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{
+      const c=b.dataset.set; const row=M.cells[sid]||(M.cells[sid]={});
+      const old=row[d];
+      if(c)row[d]=c; else delete row[d];
+      let filled=0;
+      if(c&&contRot&&CYC_SET.has(c)){
+        const idx=posAt(row,d), n=daysIn(cur.y,cur.m);
+        for(let x=d+1;x<=n;x++){row[x]=CYCLE[(idx+x-d)%12];filled++}
+      }
+      delete M.fresh;
+      if(filled){pushRow(k,sid);logChange(`${s.name}: filled the rotation from ${dayLabel(k,d)} (starting ${c}) to the end of the month`,k)}
+      else{pushCell(k,sid,d);logCell(k,sid,d,old,c)}
+      closeSheet(); render();
+      if(filled)toast(`Filled ${filled} more day${filled>1?'s':''}`);
+    });
+  });
+}
+
+/* ---------- swaps and day-off requests ---------- */
+const noteAt=(M,sid,d)=>((M.notes||{})[sid]||{})[d];
+function setNote(M,sid,d,v){M.notes=M.notes||{};if(v){(M.notes[sid]=M.notes[sid]||{})[d]=v}else if(M.notes[sid]){delete M.notes[sid][d]}}
+function openSwap(sid,d){
+  const k=mk(cur.y,cur.m), M=state.months[k];
+  const mine=(M.cells[sid]||{})[d]||'';
+  const others=M.staff.filter(x=>x.id!==sid);
+  if(!others.length){toast('There is nobody else on this month to swap with');return}
+  openSheet(`<h3>Swap ${esc(nameOf(k,sid))}’s ${esc(mine||'blank')} on ${dayLabel(k,d)}</h3>
+    <p class="sub">Pick who takes it. Their shift that day comes back to ${esc(nameOf(k,sid))}.</p>
+    <div class="pick">${others.map(o=>{const c=(M.cells[o.id]||{})[d]||'';return `<button data-with="${o.id}"><span><i class="ndot" style="--nc:${colorOf(o,M)}"></i>${esc(o.name)}</span><b class="${isRed(c)?'red':''}">${esc(c||'–')}</b></button>`}).join('')}</div>
+    <div class="row"><button class="btn" id="back">Back</button></div>`,()=>{
+    bsIn.querySelector('#back').onclick=()=>openCell(sid,d);
+    bsIn.querySelectorAll('[data-with]').forEach(b=>b.onclick=()=>{doSwap(k,sid,b.dataset.with,d);closeSheet();render()});
+  });
+}
+function doSwap(k,a,b,d){
+  const M=state.months[k], ra=M.cells[a]||(M.cells[a]={}), rb=M.cells[b]||(M.cells[b]={});
+  const ca=ra[d]||'', cb=rb[d]||'';
+  if(cb)ra[d]=cb; else delete ra[d];
+  if(ca)rb[d]=ca; else delete rb[d];
+  const by=whoAmI();
+  setNote(M,a,d,{type:'swap',with:b,was:ca,by}); setNote(M,b,d,{type:'swap',with:a,was:cb,by});
+  delete M.fresh;
+  pushFields(k,[[['cells',a,d],ra[d]],[['cells',b,d],rb[d]],[['notes',a,d],noteAt(M,a,d)],[['notes',b,d],noteAt(M,b,d)]]);
+  logChange(`Swap on ${dayLabel(k,d)}: ${nameOf(k,a)} now ${cb||'blank'}, ${nameOf(k,b)} now ${ca||'blank'}`,k);
+  toast('Swapped');
+}
+function undoSwap(k,sid,d){
+  const M=state.months[k], nt=noteAt(M,sid,d); if(!nt||nt.type!=='swap')return;
+  const other=nt.with, ot=noteAt(M,other,d);
+  const ra=M.cells[sid]||(M.cells[sid]={}), rb=M.cells[other]||(M.cells[other]={});
+  if(nt.was)ra[d]=nt.was; else delete ra[d];
+  if(ot&&ot.type==='swap'&&ot.with===sid){if(ot.was)rb[d]=ot.was; else delete rb[d]}
+  setNote(M,sid,d,null); setNote(M,other,d,null);
+  pushFields(k,[[['cells',sid,d],ra[d]],[['cells',other,d],rb[d]],[['notes',sid,d],null],[['notes',other,d],null]]);
+  logChange(`Undid the swap on ${dayLabel(k,d)} between ${nameOf(k,sid)} and ${nameOf(k,other)}`,k);
+  toast('Swap undone');
+}
+function clearSwapMarks(k,sid,d){
+  const M=state.months[k], nt=noteAt(M,sid,d); if(!nt)return;
+  const pairs=[[['notes',sid,d],null]];
+  setNote(M,sid,d,null);
+  if(nt.with&&noteAt(M,nt.with,d)&&noteAt(M,nt.with,d).with===sid){setNote(M,nt.with,d,null);pairs.push([['notes',nt.with,d],null])}
+  pushFields(k,pairs);
+}
+function openRequest(sid,d){
+  const k=mk(cur.y,cur.m);
+  openSheet(`<h3>Request ${dayLabel(k,d)} off</h3>
+    <p class="sub">For ${esc(nameOf(k,sid))}. The square gets a “?” mark until the in-charge approves or declines it.</p>
+    <label class="f" for="rqTxt">Reason (optional)<input type="text" id="rqTxt" maxlength="120" placeholder="e.g. Family wedding" autofocus></label>
+    <div class="row"><button class="btn primary" id="send">Send request</button><button class="btn" id="back">Back</button></div>`,()=>{
+    bsIn.querySelector('#back').onclick=()=>openCell(sid,d);
+    bsIn.querySelector('#send').onclick=()=>{
+      const M=state.months[k]; const text=bsIn.querySelector('#rqTxt').value.trim();
+      setNote(M,sid,d,{type:'req',text,by:whoAmI()}); delete M.fresh;
+      pushNote(k,sid,d);
+      logChange(`${nameOf(k,sid)} asked for ${dayLabel(k,d)} off${text?`: “${text}”`:''}`,k);
+      closeSheet(); render(); toast('Request sent');
+    };
+  });
+}
+function answerRequest(k,sid,d,yes){
+  const M=state.months[k]; const row=M.cells[sid]||(M.cells[sid]={}); const old=row[d];
+  setNote(M,sid,d,null);
+  if(yes){row[d]='DO';pushFields(k,[[['cells',sid,d],'DO'],[['notes',sid,d],null]])}
+  else pushNote(k,sid,d);
+  logChange(`${yes?'Approved':'Declined'} ${nameOf(k,sid)}’s request for ${dayLabel(k,d)} off${yes&&old&&old!=='DO'?` (was ${old})`:''}`,k);
+  toast(yes?'Approved, marked DO':'Request declined');
+}
+function myRequests(){
+  if(!me)return [];
+  const out=[];
+  Object.entries(state.months).forEach(([k,M])=>{const ns=(M.notes||{})[me]||{};Object.entries(ns).forEach(([d,n])=>{if(n&&n.type==='req')out.push({k,d:+d})})});
+  return out.sort((a,b)=>a.k===b.k?a.d-b.d:a.k<b.k?-1:1);
+}
+
+function openName(sid){
+  const k=mk(cur.y,cur.m), M=state.months[k];
+  const i=M.staff.findIndex(x=>x.id===sid), s=M.staff[i];
+  openSheet(`<h3>Nurse</h3>
+    <label class="f" for="nm">Name as written on the roster<input type="text" id="nm" value="${esc(s.name)}" autofocus></label>
+    <div class="f"><span>Colour</span><div class="swatches">${NURSE_COLORS.map(c=>`<button class="sw8 ${colorOf(s,M)===c?'on':''}" data-col="${c}" style="--nc:${c}" aria-label="Colour ${c}" aria-pressed="${colorOf(s,M)===c}"></button>`).join('')}</div></div>
+    <label class="switch"><input type="checkbox" id="isMe" ${me===sid?'checked':''}> This is my row (only on this phone)</label>
+    <div class="row"><button class="btn" id="up" ${i===0?'disabled':''}>Move up</button><button class="btn" id="down" ${i===M.staff.length-1?'disabled':''}>Move down</button></div>
+    <div class="row"><button class="btn primary" id="sv">Save</button><button class="btn danger" id="rm">Remove from this month</button></div>`,()=>{
+    const mv=dir=>{M.staff.forEach(x=>{if(!x.color)x.color=colorOf(x,M)});const j=i+dir;[M.staff[i],M.staff[j]]=[M.staff[j],M.staff[i]];pushStaff(k);closeSheet();render()};
+    bsIn.querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{
+      const col=b.dataset.col;
+      Object.entries(state.months).forEach(([mk2,Mo])=>{const x=Mo.staff.find(z=>z.id===sid);if(x&&x.color!==col){x.color=col;if(!Mo.fresh)pushStaff(mk2)}});
+      // give everyone else their current colour too, so it can't shift when rows are reordered
+      M.staff.forEach(x=>{if(!x.color)x.color=colorOf(x,M)});
+      if(!M.fresh)pushStaff(k);
+      saveLocal(); render();
+      bsIn.querySelectorAll('[data-col]').forEach(z=>{z.classList.toggle('on',z===b);z.setAttribute('aria-pressed',z===b)});
+    });
+    bsIn.querySelector('#up').onclick=()=>mv(-1);
+    bsIn.querySelector('#down').onclick=()=>mv(1);
+    bsIn.querySelector('#sv').onclick=()=>{
+      const v=bsIn.querySelector('#nm').value.trim(); if(v)renameEverywhere(sid,v);
+      const isMe=bsIn.querySelector('#isMe').checked; if(isMe)me=sid; else if(me===sid)me=null; lsSet(ME_KEY,me);
+      closeSheet();render();
+    };
+    let armed=false;
+    bsIn.querySelector('#rm').onclick=e=>{
+      if(!armed){armed=true;e.target.textContent='Tap again to remove';return}
+      M.staff.splice(i,1); delete M.cells[sid]; pushStaff(k); pushRow(k,sid);
+      logChange(`Removed ${s.name} from ${MONTHS[cur.m-1]} ${cur.y}`,k);
+      closeSheet(); render(); toast('Removed');
+    };
+  });
+}
+function renameEverywhere(sid,v){
+  const old=findName(sid);
+  if(old&&old!==v)logChange(old==='New nurse'?`Added ${v} to the roster`:`Renamed ${old} to ${v}`,mk(cur.y,cur.m));
+  Object.entries(state.months).forEach(([k,Mo])=>{const s=Mo.staff.find(x=>x.id===sid);if(s&&s.name!==v){s.name=v;if(!Mo.fresh)pushStaff(k)}});
+  saveLocal();
+}
+
+function addNurse(){
+  const k=mk(cur.y,cur.m), M=state.months[k];
+  M.staff.forEach(x=>{if(!x.color)x.color=colorOf(x,M)});
+  const used=new Set(M.staff.map(x=>x.color));
+  const s={id:uid(),name:'New nurse',color:NURSE_COLORS.find(c=>!used.has(c))||NURSE_COLORS[M.staff.length%NURSE_COLORS.length]}; M.staff.push(s); M.cells[s.id]={}; delete M.fresh; pushStaff(k); render(); openName(s.id);
+  const nm=bsIn.querySelector('#nm'); nm&&nm.select();
+}
+
+function openCode(code){
+  const isNew=!code; const v=isNew?{m:'',red:false}:state.codes[code];
+  let used=false; if(!isNew)Object.values(state.months).forEach(M=>Object.values(M.cells).forEach(r=>Object.values(r).forEach(c=>{if(c===code)used=true})));
+  openSheet(`<h3>${isNew?'New code':'Code '+esc(code)}</h3>
+    ${isNew?'<label class="f" for="cd">Letters as written (up to 3)<input type="text" id="cd" maxlength="3" autofocus></label>':''}
+    <label class="f" for="cm">What it means<input type="text" id="cm" value="${esc(v.m)}" ${isNew?'':'autofocus'}></label>
+    <label class="switch"><input type="checkbox" id="cr" ${v.red?'checked':''}> Written in red ink</label>
+    <div class="times">
+      <label class="f" for="cs">Starts<input type="time" id="cs" value="${esc(v.start||'')}"></label>
+      <label class="f" for="ce">Ends<input type="time" id="ce" value="${esc(v.end||'')}"></label>
+    </div>
+    <p class="hint">Set times only for shifts that are worked. They count towards hours. Leave them blank for days off and leave.</p>
+    <div class="row"><button class="btn primary" id="sv">Save</button>${!isNew&&!used&&!CYC_SET.has(code)?'<button class="btn danger" id="del">Delete code</button>':''}<button class="btn" id="cx">Cancel</button></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    const del=bsIn.querySelector('#del'); if(del)del.onclick=()=>{delete state.codes[code];pushCodes();logChange(`Deleted the code ${code}`);closeSheet();render()};
+    bsIn.querySelector('#sv').onclick=()=>{
+      let c=code;
+      if(isNew){c=cleanCode(bsIn.querySelector('#cd').value).slice(0,3); if(!c){toast('Type the letters for the code');return}}
+      const st=bsIn.querySelector('#cs').value, en=bsIn.querySelector('#ce').value;
+      if((st&&!en)||(!st&&en)){toast('Set both a start and an end time, or neither');return}
+      state.codes[c]={m:bsIn.querySelector('#cm').value.trim()||c,red:bsIn.querySelector('#cr').checked};
+      if(st&&en){state.codes[c].start=st;state.codes[c].end=en}
+      const v2=state.codes[c];
+      logChange(`${isNew?'Added':'Changed'} the code ${c}: ${v2.m}${v2.start?` (${fmtT(v2.start)}–${fmtT(v2.end)})`:''}`);
+      pushCodes();closeSheet();render();
+    };
+  });
+}
+
+function openBackup(){
+  const json=JSON.stringify({codes:state.codes,months:Object.fromEntries(Object.entries(state.months).map(([k,M])=>[k,monthData(M)]))});
+  openSheet(`<h3>Backup and restore</h3>
+    <p class="sub">Copy this text somewhere safe (a note or a message to yourself) to keep a backup.${ward?' The ward roster is also kept online.':''}</p>
+    <textarea id="bk" readonly>${esc(json)}</textarea>
+    <div class="row"><button class="btn primary" id="cp">Copy backup</button></div>
+    <label class="f" for="rs">Paste a backup here to restore it${ward?' (this replaces the ward roster for everyone)':''}<textarea id="rs"></textarea></label>
+    <div class="row"><button class="btn" id="rsb">Restore</button><button class="btn" id="cx">Close</button></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    bsIn.querySelector('#cp').onclick=()=>copyText(json,'Backup copied');
+    let armed=!ward;
+    bsIn.querySelector('#rsb').onclick=e=>{
+      let s;try{s=JSON.parse(bsIn.querySelector('#rs').value);if(!s.months||!s.codes)throw 0}catch(err){toast('That text is not a roster backup. Paste the whole copied text.');return}
+      if(!armed){armed=true;e.target.textContent='Tap again to replace the ward roster';return}
+      state.codes=s.codes; state.months={};
+      Object.entries(s.months).forEach(([k,M])=>{state.months[k]={staff:M.staff||[],cells:M.cells||{},notes:M.notes||{}}});
+      pushCodes(); Object.keys(state.months).forEach(k=>pushMonth(k,true));
+      logChange('Restored the whole roster from a backup');
+      saveLocal(); closeSheet(); render(); toast('Roster restored');
+    };
+  });
+}
+
+/* ---------- ward sharing sheet ---------- */
+function wardLink(){return location.origin+location.pathname+'?ward='+ward}
+function openWard(){
+  if(!SYNC_READY||!db){
+    openSheet(`<h3>Sharing isn’t set up yet</h3>
+      <p class="hint">This copy of the app has no Firebase settings, so the roster stays on this phone. Whoever looks after the app needs to paste the Firebase settings into index.html (see the README).</p>
+      <div class="row"><button class="btn" id="cx">Close</button></div>`,()=>bsIn.querySelector('#cx').onclick=closeSheet);
+    return;
+  }
+  if(!ward){
+    openSheet(`<h3>Share the roster with the ward</h3>
+      <p class="sub">Everyone with the ward link sees the same roster. Changes show on every phone within seconds, and changes made offline sync when the phone is back online.</p>
+      <div class="sec"><h4>Start a ward roster</h4>
+        <p class="hint">Puts this phone’s roster online and gives you a link to send to the ward.</p>
+        <div class="row"><button class="btn primary" id="mk">Start sharing</button></div></div>
+      <div class="sec"><h4>Join a ward roster</h4>
+        <label class="f" for="jc">Ward code (8 letters and numbers)<input type="text" id="jc" autocomplete="off" autocapitalize="characters" placeholder="e.g. K7MPR2QD"></label>
+        <p class="hint">Joining replaces what is on this phone with the ward’s roster.</p>
+        <div class="row"><button class="btn" id="jn">Join</button><button class="btn" id="cx">Close</button></div></div>`,()=>{
+      bsIn.querySelector('#cx').onclick=closeSheet;
+      bsIn.querySelector('#mk').onclick=async e=>{e.target.disabled=true;e.target.textContent='Starting…';const ok=await createWard();if(ok){openWard();toast('The roster is now shared')}else{e.target.disabled=false;e.target.textContent='Start sharing'}};
+      bsIn.querySelector('#jn').onclick=async e=>{e.target.disabled=true;const ok=await joinWard(bsIn.querySelector('#jc').value);e.target.disabled=false;if(ok)closeSheet()};
+    });
+    return;
+  }
+  const link=wardLink();
+  const wa='https://wa.me/?text='+encodeURIComponent(`Our ward duty roster: ${link}\nWard code: ${ward}`);
+  openSheet(`<h3>Ward roster</h3>
+    <p class="sub">${syncState.mode==='error'?'There is a sync problem: '+esc(syncState.err||'unknown')+'. Changes are kept on this phone and retried.':'Anyone with this link or code can see and change the roster.'}</p>
+    <p class="wardcode">${esc(ward)}</p>
+    <div class="linkbox" id="lk">${esc(link)}</div>
+    <div class="row"><a class="btn primary" href="${esc(wa)}" target="_blank" rel="noopener">Send on WhatsApp</a><button class="btn" id="cpl">Copy link</button></div>
+    <div class="sec"><h4>Leave this ward</h4><p class="hint">This phone keeps a copy but stops syncing.</p>
+      <div class="row"><button class="btn danger" id="lv">Leave ward</button><button class="btn" id="cx">Close</button></div></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    bsIn.querySelector('#cpl').onclick=()=>copyText(link,'Link copied');
+    let armed=false;
+    bsIn.querySelector('#lv').onclick=e=>{if(!armed){armed=true;e.target.textContent='Tap again to leave';return}leaveWard();closeSheet()};
+  });
+}
+
+/* ---------- events ---------- */
+const grid=document.getElementById('grid');
+function stamp(td){
+  const k=mk(cur.y,cur.m), M=state.months[k], sid=td.dataset.s, d=+td.dataset.d;
+  const row=M.cells[sid]||(M.cells[sid]={});
+  const old=row[d];
+  if(paint)row[d]=paint; else delete row[d];
+  delete M.fresh; pushCell(k,sid,d); logCell(k,sid,d,old,paint);
+  render();
+}
+function gridAct(t){
+  if(t.closest('input'))return;
+  const ob=t.closest('[data-name]'); if(ob){openName(ob.dataset.name);return}
+  const td=t.closest('td'); if(!td)return;
+  if(td.dataset.s){ if(paint!==null)stamp(td); else openCell(td.dataset.s,+td.dataset.d); }
+  else if(td.dataset.add)addNurse();
+}
+grid.addEventListener('click',e=>gridAct(e.target));
+grid.addEventListener('keydown',e=>{if(e.target.closest('input,button'))return;if(e.key==='Enter'||e.key===' '){e.preventDefault();gridAct(e.target)}});
+grid.addEventListener('change',e=>{
+  const inp=e.target.closest('[data-nm]'); if(!inp)return;
+  const v=inp.value.trim(), sid=inp.dataset.nm;
+  if(!v){inp.value=findName(sid)||'';return}
+  renameEverywhere(sid,v); renderWeek(); toast('Name saved');
+});
+grid.addEventListener('keydown',e=>{if(e.target.matches('.nameinp')&&e.key==='Enter')e.target.blur()});
+document.getElementById('paintbar').addEventListener('click',e=>{
+  const b=e.target.closest('[data-paint]'); if(!b)return;
+  const c=b.dataset.paint; paint=(paint===c)?null:c; renderPaint();
+});
+document.getElementById('legend').addEventListener('click',e=>{const b=e.target.closest('[data-code]');if(b)openCode(b.dataset.code)});
+document.getElementById('addNurse').onclick=addNurse;
+document.getElementById('backup').onclick=openBackup;
+document.getElementById('logBtn').onclick=openLog;
+document.getElementById('carry').onclick=carryOn;
+document.getElementById('syncPill').onclick=openWard;
+document.getElementById('shareWard').onclick=openWard;
+const shift=n=>{let m=cur.m+n,y=cur.y;if(m<1){m=12;y--}if(m>12){m=1;y++}cur={y,m};render();scrollToday()};
+document.getElementById('prev').onclick=()=>shift(-1);
+document.getElementById('next').onclick=()=>shift(1);
+document.getElementById('goToday').onclick=()=>{cur={y:T.y,m:T.m};render();scrollToday()};
+function scrollToday(){
+  const w=document.querySelector('.grid-wrap'), th=w.querySelector('th.today');
+  if(th)w.scrollLeft=Math.max(0,th.offsetLeft-132-34*2); else w.scrollLeft=0;
+}
+
+/* ---------- share the month as a picture ---------- */
+async function drawRosterImage(){
+  try{await document.fonts.ready}catch(e){}
+  const M=state.months[mk(cur.y,cur.m)], n=daysIn(cur.y,cur.m);
+  const S=2, NW=170, CW=34, RH=32, PAD=24, HDR=78, extra=2;
+  const rows=M.staff.length;
+  const W=PAD*2+NW+CW*n+46*extra, H=PAD*2+HDR+RH*2+RH*rows+RH*2+60;
+  const cv=document.createElement('canvas');cv.width=W*S;cv.height=H*S;
+  const g=cv.getContext('2d');g.scale(S,S);
+  const INK='#1d2b55',RED='#c3262f',LINE='#3a3d45',PAPER='#fbfaf5',SHADE='#f0eee5';
+  g.fillStyle=PAPER;g.fillRect(0,0,W,H);
+  const pen='"Kalam", "Comic Sans MS", cursive', form='"Archivo Narrow", Arial, sans-serif';
+  g.textBaseline='middle';g.textAlign='center';g.fillStyle='#24262b';
+  g.font=`700 22px ${form}`;g.fillText(`NURSES DUTY ROSTER  ·  ${MONTHS[cur.m-1].toUpperCase()} ${cur.y}`,W/2,PAD+20);
+  const x0=PAD,y0=PAD+HDR-24;
+  const colX=d=>x0+NW+CW*(d-1);
+  const cell=(x,y,w,txt,font,color,fill)=>{if(fill){g.fillStyle=fill;g.fillRect(x,y,w,RH)}g.strokeStyle=LINE;g.lineWidth=1;g.strokeRect(x+.5,y+.5,w,RH);if(txt!==''&&txt!=null){g.fillStyle=color;g.font=font;g.fillText(String(txt),x+w/2,y+RH/2+1)}};
+  const nameCell=(y,txt,font,color,fill)=>{if(fill){g.fillStyle=fill;g.fillRect(x0,y,NW,RH)}g.strokeStyle=LINE;g.strokeRect(x0+.5,y+.5,NW,RH);g.textAlign='left';g.fillStyle=color;g.font=font;let t=String(txt);while(g.measureText(t).width>NW-14&&t.length>3)t=t.slice(0,-2)+'…';g.fillText(t,x0+8,y+RH/2+1);g.textAlign='center'};
+  const ex=n=>x0+NW+CW*n;
+  const lab=`700 13px ${form}`, lab12=`700 12px ${form}`;
+  let y=y0;
+  nameCell(y,'DATE',lab,'#24262b');
+  for(let d=1;d<=n;d++)cell(colX(d),y,CW,d,lab,holOn(cur.y,cur.m,d)?RED:'#24262b');
+  cell(ex(n),y,46,'HRS',lab12,'#24262b');cell(ex(n)+46,y,46,'LV',lab12,'#24262b');
+  y+=RH;
+  nameCell(y,'DAY',lab,'#24262b');
+  for(let d=1;d<=n;d++){const ho=holOn(cur.y,cur.m,d);cell(colX(d),y,CW,ho?'PH':WD[new Date(cur.y,cur.m-1,d).getDay()],`400 15px ${pen}`,ho?RED:INK)}
+  cell(ex(n),y,46,'');cell(ex(n)+46,y,46,'');
+  y+=RH;
+  M.staff.forEach(s=>{
+    const row=M.cells[s.id]||{};let hrs=0,lv=0;
+    const col=colorOf(s,M);
+    nameCell(y,'  '+s.name,`700 15px ${pen}`,INK,col+'26');
+    g.fillStyle=col;g.fillRect(x0+1,y+1,6,RH-1);
+    for(let d=1;d<=n;d++){const c=row[d]||'';hrs+=hoursOf(c);if(isRed(c))lv++;cell(colX(d),y,CW,c,`700 14px ${pen}`,isRed(c)?RED:INK,HL_PRINT[kindOf(c)]||(isWeekend(cur.y,cur.m,d)?SHADE:null))}
+    cell(ex(n),y,46,hrs?fmtH(hrs):'',lab,'#24262b');cell(ex(n)+46,y,46,lv||'',lab,'#24262b');
+    y+=RH;
+  });
+  [['N','ON NIGHTS'],['ST','ON DAYS']].forEach(([code,l])=>{
+    nameCell(y,l,lab12,'#24262b',SHADE);
+    for(let d=1;d<=n;d++){const k=M.staff.reduce((a,s)=>a+((M.cells[s.id]||{})[d]===code?1:0),0);cell(colX(d),y,CW,k,lab,k?'#24262b':'#fff',k?SHADE:RED)}
+    cell(ex(n),y,46,'',null,null,SHADE);cell(ex(n)+46,y,46,'',null,null,SHADE);
+    y+=RH;
+  });
+  g.textAlign='left';g.font='13px Archivo, Arial, sans-serif';g.fillStyle='#24262b';
+  const items=Object.entries(state.codes).filter(([c])=>M.staff.some(s=>Object.values(M.cells[s.id]||{}).includes(c))).map(([c,v])=>`${c} = ${v.m}${isWork(c)?' ('+fmtT(v.start)+'–'+fmtT(v.end)+')':''}`);
+  const maxW=W-PAD*2; let line='', ly=y+24;
+  items.forEach(it=>{const t=line?line+'   ·   '+it:it;if(g.measureText(t).width>maxW&&line){g.fillText(line,x0,ly);ly+=20;line=it}else line=t});
+  if(line)g.fillText(line,x0,ly);
+  return new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
+}
+
+document.getElementById('shareImg').onclick=async()=>{
+  const M=state.months[mk(cur.y,cur.m)];
+  if(!M.staff.length){toast('Add some nurses first');return}
+  openSheet('<h3>Making the picture</h3><p class="hint"><span class="spin"></span>One moment…</p>');
+  const blob=await drawRosterImage();
+  if(!blob){closeSheet();toast('Couldn’t make the picture on this phone');return}
+  const url=URL.createObjectURL(blob);
+  const fname=`Duty roster ${MONTHS[cur.m-1]} ${cur.y}.png`;
+  const file=new File([blob],fname,{type:'image/png'});
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+  openSheet(`<h3>${MONTHS[cur.m-1]} ${cur.y} roster picture</h3>
+    <img class="imgprev" src="${url}" alt="Picture of the ${MONTHS[cur.m-1]} roster">
+    <p class="hint">${canShare?'Tap Send to pick WhatsApp or another app.':'Save it, then send it on WhatsApp like any photo.'}</p>
+    <div class="row">${canShare?'<button class="btn primary" id="snd">Send…</button>':''}<a class="btn ${canShare?'':'primary'}" href="${url}" download="${esc(fname)}">Save picture</a><button class="btn" id="cx">Close</button></div>`,()=>{
+    bsIn.querySelector('#cx').onclick=closeSheet;
+    const snd=bsIn.querySelector('#snd');
+    if(snd)snd.onclick=async()=>{try{await navigator.share({files:[file],title:`Duty roster ${MONTHS[cur.m-1]} ${cur.y}`})}catch(e){if(e&&e.name!=='AbortError')toast('Couldn’t open sharing. Save the picture instead.')}};
+  });
+};
+
+/* ---------- start ---------- */
+(function start(){
+  const q=new URLSearchParams(location.search).get('ward');
+  render(); scrollToday();
+  if(q&&SYNC_READY&&db){
+    const code=cleanCode(q);
+    history.replaceState(null,'',location.pathname);
+    if(code!==lsGet(WARD_KEY)){joinWard(code);return}
+  }
+  ward=SYNC_READY&&db?lsGet(WARD_KEY):null;
+  connect();
+})();
+
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+</script>
+</body>
+</html>
